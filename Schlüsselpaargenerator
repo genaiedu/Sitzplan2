@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Schlüsselpaar-Generator für die Sitzplan-App</title>
+<style>
+  :root{
+    --bg1:#eef4ff;--bg2:#f7edff;--bg3:#e9fff8;
+    --glass:rgba(255,255,255,.72);--line:rgba(71,85,105,.22);
+    --ink:#172033;--muted:#627089;--accent:#635bff;--accent2:#8b5cf6;
+    --good:#15803d;--danger:#dc2626;--warn:#b45309;
+    --shadow:0 18px 55px rgba(54,61,88,.16),0 4px 16px rgba(54,61,88,.08);
+    --radius:22px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;min-height:100%;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--ink)}
+  body{
+    background:
+      radial-gradient(circle at 12% 8%, rgba(99,91,255,.20), transparent 34%),
+      radial-gradient(circle at 84% 12%, rgba(6,182,212,.18), transparent 32%),
+      radial-gradient(circle at 75% 88%, rgba(139,92,246,.18), transparent 36%),
+      linear-gradient(135deg,var(--bg1),var(--bg2) 55%,var(--bg3));
+    padding:24px;
+  }
+  .wrap{max-width:1100px;margin:0 auto;display:grid;gap:18px}
+  .card{background:var(--glass);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:22px;backdrop-filter:blur(18px) saturate(145%)}
+  h1{margin:0 0 8px;font-size:clamp(25px,4vw,38px);letter-spacing:-.03em}
+  h2{margin:0 0 12px;font-size:20px}
+  p{margin:8px 0;color:var(--muted);line-height:1.55}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  @media(max-width:850px){.grid{grid-template-columns:1fr}body{padding:12px}.card{padding:16px}}
+  button{border:1px solid var(--line);border-radius:15px;background:white;color:var(--ink);font:inherit;font-weight:750;padding:11px 14px;cursor:pointer;box-shadow:0 1px 0 rgba(255,255,255,.65) inset;transition:.15s ease}
+  button:hover{transform:translateY(-1px);border-color:rgba(71,85,105,.38)}
+  button.primary{background:linear-gradient(135deg,var(--accent),var(--accent2));border-color:transparent;color:white;box-shadow:0 14px 30px rgba(99,91,255,.25)}
+  button.good{color:var(--good)}
+  button.danger{color:var(--danger)}
+  button:disabled{opacity:.55;cursor:not-allowed;transform:none}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .status{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:999px;background:rgba(255,255,255,.65);padding:7px 11px;color:var(--muted);font-size:13px;font-weight:700}
+  .dot{width:9px;height:9px;border-radius:50%;background:#94a3b8}.dot.ok{background:var(--good)}.dot.warn{background:var(--warn)}
+  textarea{width:100%;min-height:260px;border:1px solid var(--line);border-radius:18px;background:rgba(255,255,255,.74);padding:14px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;line-height:1.45;color:#111827;resize:vertical;white-space:pre;overflow:auto}
+  .hint{font-size:13px;color:var(--muted)}
+  .warning{border-color:rgba(180,83,9,.35);background:rgba(255,251,235,.72)}
+  .warning strong{color:#92400e}
+  .file-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  .small{font-size:12px;color:var(--muted)}
+  code{background:rgba(255,255,255,.65);border:1px solid var(--line);padding:2px 6px;border-radius:8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <section class="card">
+    <h1>Schlüsselpaar-Generator für die Sitzplan-App</h1>
+    <p>Diese Seite erzeugt lokal im Browser ein neues RSA-Schlüsselpaar im Format, das zur Sitzplan-App passt: <code>RSA-OAEP</code>, <code>SHA-256</code>, 4096 Bit, Public Key als <code>SPKI-PEM</code> und Private Key als <code>PKCS8-PEM</code>.</p>
+    <div class="row" style="margin-top:16px">
+      <button id="generateBtn" class="primary">Neues Schlüsselpaar erzeugen</button>
+      <button id="clearBtn" class="danger" disabled>Anzeige löschen</button>
+      <span id="status" class="status"><span class="dot"></span>Noch kein Schlüssel erzeugt</span>
+    </div>
+  </section>
+
+  <section class="card warning">
+    <p><strong>Wichtig:</strong> Der private Schlüssel darf nicht veröffentlicht oder an Schülerinnen und Schüler weitergegeben werden. Wer den Private Key besitzt, kann verschlüsselte Sitzplandaten entschlüsseln. Die Erzeugung läuft vollständig lokal im Browser.</p>
+  </section>
+
+  <section class="grid">
+    <div class="card">
+      <h2>Öffentlicher Schlüssel</h2>
+      <p class="hint">Diesen Schlüssel darfst du in der App oder für Verschlüsselung verwenden.</p>
+      <textarea id="publicPem" readonly placeholder="Hier erscheint der Public Key als -----BEGIN PUBLIC KEY----- ..."></textarea>
+      <div class="file-row">
+        <button id="copyPublicBtn" disabled>Public Key kopieren</button>
+        <button id="downloadPublicBtn" disabled>Public Key herunterladen</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Privater Schlüssel</h2>
+      <p class="hint">Diesen Schlüssel sicher speichern. Nicht in öffentliche Repositories legen.</p>
+      <textarea id="privatePem" readonly placeholder="Hier erscheint der Private Key als -----BEGIN PRIVATE KEY----- ..."></textarea>
+      <div class="file-row">
+        <button id="copyPrivateBtn" disabled>Private Key kopieren</button>
+        <button id="downloadPrivateBtn" disabled>Private Key herunterladen</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Komplettes Schlüsselpaket</h2>
+    <p class="hint">Dieses JSON enthält beide PEM-Schlüssel und Metadaten. Nur lokal und sicher speichern.</p>
+    <textarea id="bundleJson" readonly placeholder="Hier erscheint das komplette Schlüsselpaket als JSON."></textarea>
+    <div class="file-row">
+      <button id="copyBundleBtn" disabled>Schlüsselpaket kopieren</button>
+      <button id="downloadBundleBtn" disabled>Schlüsselpaket herunterladen</button>
+    </div>
+    <p class="small">Algorithmus im Paket: <code>RSA-OAEP-4096-SHA256</code>. Die Sitzplandaten selbst können danach wie in der App üblich mit <code>AES-GCM-256</code> verschlüsselt werden; RSA transportiert nur den AES-Schlüssel.</p>
+  </section>
+</div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const generateBtn = $('generateBtn');
+  const clearBtn = $('clearBtn');
+  const statusEl = $('status');
+  const publicPemEl = $('publicPem');
+  const privatePemEl = $('privatePem');
+  const bundleJsonEl = $('bundleJson');
+
+  const buttons = [
+    'copyPublicBtn','downloadPublicBtn','copyPrivateBtn','downloadPrivateBtn','copyBundleBtn','downloadBundleBtn'
+  ].map($);
+
+  function setStatus(text, type = '') {
+    statusEl.innerHTML = `<span class="dot ${type}"></span>${escapeHtml(text)}`;
+  }
+
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
+  }
+
+  function arrayBufferToBase64(buffer) {
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    const chunkSize = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
+    }
+    return btoa(binary);
+  }
+
+  function base64ToPem(base64, label) {
+    const lines = base64.match(/.{1,64}/g) || [];
+    return `-----BEGIN ${label}-----\n${lines.join('\n')}\n-----END ${label}-----`;
+  }
+
+  async function exportPem(key, format, label) {
+    const exported = await crypto.subtle.exportKey(format, key);
+    return base64ToPem(arrayBufferToBase64(exported), label);
+  }
+
+  function downloadText(filename, text) {
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  async function copyText(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return;
+    }
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    document.execCommand('copy');
+    ta.remove();
+  }
+
+  function enableOutputs(enabled) {
+    buttons.forEach(btn => btn.disabled = !enabled);
+    clearBtn.disabled = !enabled;
+  }
+
+  function timestampForFilename() {
+    const d = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}_${pad(d.getHours())}-${pad(d.getMinutes())}-${pad(d.getSeconds())}`;
+  }
+
+  async function generateKeys() {
+    if (!window.crypto || !crypto.subtle) {
+      setStatus('WebCrypto ist in diesem Browser nicht verfügbar', 'warn');
+      return;
+    }
+
+    generateBtn.disabled = true;
+    setStatus('Schlüsselpaar wird erzeugt ...', 'warn');
+
+    try {
+      const keyPair = await crypto.subtle.generateKey(
+        {
+          name: 'RSA-OAEP',
+          modulusLength: 4096,
+          publicExponent: new Uint8Array([1, 0, 1]),
+          hash: 'SHA-256'
+        },
+        true,
+        ['encrypt', 'decrypt']
+      );
+
+      const publicPem = await exportPem(keyPair.publicKey, 'spki', 'PUBLIC KEY');
+      const privatePem = await exportPem(keyPair.privateKey, 'pkcs8', 'PRIVATE KEY');
+      const createdAt = new Date().toISOString();
+      const bundle = {
+        schema: 'SITZPLANAPP_RSA_OAEP_KEYPAIR_V1',
+        algorithm: 'RSA-OAEP-4096-SHA256',
+        publicKeyFormat: 'spki-pem',
+        privateKeyFormat: 'pkcs8-pem',
+        createdAt,
+        publicKeyPem: publicPem,
+        privateKeyPem: privatePem
+      };
+
+      publicPemEl.value = publicPem;
+      privatePemEl.value = privatePem;
+      bundleJsonEl.value = JSON.stringify(bundle, null, 2);
+      enableOutputs(true);
+      setStatus('Schlüsselpaar erzeugt', 'ok');
+    } catch (err) {
+      console.error(err);
+      setStatus('Fehler beim Erzeugen des Schlüsselpaars', 'warn');
+      alert('Das Schlüsselpaar konnte nicht erzeugt werden. Details stehen in der Browser-Konsole.');
+    } finally {
+      generateBtn.disabled = false;
+    }
+  }
+
+  function clearAll() {
+    publicPemEl.value = '';
+    privatePemEl.value = '';
+    bundleJsonEl.value = '';
+    enableOutputs(false);
+    setStatus('Anzeige gelöscht');
+  }
+
+  generateBtn.addEventListener('click', generateKeys);
+  clearBtn.addEventListener('click', clearAll);
+
+  $('copyPublicBtn').addEventListener('click', async () => { await copyText(publicPemEl.value); setStatus('Public Key kopiert', 'ok'); });
+  $('copyPrivateBtn').addEventListener('click', async () => { await copyText(privatePemEl.value); setStatus('Private Key kopiert', 'ok'); });
+  $('copyBundleBtn').addEventListener('click', async () => { await copyText(bundleJsonEl.value); setStatus('Schlüsselpaket kopiert', 'ok'); });
+
+  $('downloadPublicBtn').addEventListener('click', () => downloadText(`sitzplan_public_key_${timestampForFilename()}.pem`, publicPemEl.value));
+  $('downloadPrivateBtn').addEventListener('click', () => downloadText(`sitzplan_private_key_${timestampForFilename()}.pem`, privatePemEl.value));
+  $('downloadBundleBtn').addEventListener('click', () => downloadText(`sitzplan_schluesselpaar_${timestampForFilename()}.json`, bundleJsonEl.value));
+})();
+</script>
+</body>
+</html>
